@@ -94,13 +94,17 @@ class GitHub:
                                    data=json.dumps(body).encode() if body is not None else None,
                                    headers={"Accept": "application/vnd.github+json", "User-Agent": "sb-escalation",
                                             **({"Authorization": f"Bearer {self.token}"} if self.token else {})})
-        try:
-            with urllib.request.urlopen(r, timeout=30) as resp:
-                raw = resp.read()
-                return json.loads(raw) if raw else None
-        # every transport failure is 'unknown', never a crash: truncated bodies (IncompleteRead), resets, bad JSON
-        except (urllib.error.URLError, http.client.HTTPException, OSError, ValueError) as e:
-            raise EscalationError(f"{method} {path}: {e!r}"[:300])
+        for attempt in range(3 if method == "GET" else 1):  # reads retry (truncated bodies seen live); writes never do
+            try:
+                with urllib.request.urlopen(r, timeout=30) as resp:
+                    raw = resp.read()
+                    return json.loads(raw) if raw else None
+            except urllib.error.HTTPError as e:  # a real HTTP answer (403/404/...): retrying won't change it
+                raise EscalationError(f"{method} {path}: {e!r}"[:300])
+            # every transport failure is 'unknown', never a crash: truncated bodies (IncompleteRead), resets, bad JSON
+            except (urllib.error.URLError, http.client.HTTPException, OSError, ValueError) as e:
+                err = e
+        raise EscalationError(f"{method} {path}: {err!r}"[:300])
 
     def issues(self, state="all"):
         return [i for i in self.req("GET", f"/repos/{REPO}/issues?state={state}&labels=escalation&per_page=100&creator={BOT.replace('[', '%5B').replace(']', '%5D')}")
