@@ -6,15 +6,15 @@ on:
     - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
-      event: { description: "event type (allowlisted in escalate.py)", required: true, type: string }
-      project: { description: "project id", required: true, type: string }
+      event: { description: "event type (allowlisted in escalate.py); empty = tick only (manual kick / recovery)", required: false, type: string, default: "" }
+      project: { description: "project id", required: false, type: string, default: "" }
       task: { description: "task id (optional)", required: false, type: string, default: "" }
 permissions: { contents: read, issues: write }
 jobs:
   # A dispatched escalation must never be lost. GitHub's concurrency groups CANCEL a pending run when a newer one queues,
   # so `open` stays outside the group; only `tick` (idempotent, repeated every 5 min) is serialised.
   open:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.event != ''
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -29,7 +29,7 @@ jobs:
         run: python3 escalate.py open --event "$EVENT" --project "$PROJECT" --task "$TASK"
   tick:
     needs: open
-    if: always() && (github.event_name == 'schedule' || needs.open.result == 'success')
+    if: always() && (github.event_name == 'schedule' || needs.open.result == 'success' || needs.open.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     concurrency: { group: escalate-tick, cancel-in-progress: false }
