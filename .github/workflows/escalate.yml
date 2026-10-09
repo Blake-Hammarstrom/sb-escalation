@@ -10,22 +10,32 @@ on:
       project: { description: "project id", required: true, type: string }
       task: { description: "task id (optional)", required: false, type: string, default: "" }
 permissions: { contents: read, issues: write }
-concurrency: { group: escalate, cancel-in-progress: false }
 jobs:
-  escalate:
+  # A dispatched escalation must never be lost. GitHub's concurrency groups CANCEL a pending run when a newer one queues,
+  # so `open` stays outside the group; only `tick` (idempotent, repeated every 5 min) is serialised.
+  open:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with: { persist-credentials: false }
-      - name: Open escalation (dispatch inputs are validated in Python, never interpolated into shell)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Open escalation (inputs validated in Python, never interpolated into shell)
         env:
           GITHUB_TOKEN: ${{ github.token }}
           EVENT: ${{ inputs.event }}
           PROJECT: ${{ inputs.project }}
           TASK: ${{ inputs.task }}
         run: python3 escalate.py open --event "$EVENT" --project "$PROJECT" --task "$TASK"
+  tick:
+    needs: open
+    if: always() && (github.event_name == 'schedule' || needs.open.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency: { group: escalate-tick, cancel-in-progress: false }
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
       - name: Tick (producers, notify, re-alert, park)
         env: { GITHUB_TOKEN: "${{ github.token }}" }
         run: python3 escalate.py tick
