@@ -8,7 +8,7 @@
 
 All decisions are deterministic: severity from a fixed table, deadlines from timestamps. No model anywhere.
 """
-import argparse, datetime as dt, json, os, re, sys, urllib.error, urllib.request
+import argparse, datetime as dt, http.client, json, os, re, sys, urllib.error, urllib.request
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -98,8 +98,9 @@ class GitHub:
             with urllib.request.urlopen(r, timeout=30) as resp:
                 raw = resp.read()
                 return json.loads(raw) if raw else None
-        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
-            raise EscalationError(f"{method} {path}: {e}")
+        # every transport failure is 'unknown', never a crash: truncated bodies (IncompleteRead), resets, bad JSON
+        except (urllib.error.URLError, http.client.HTTPException, OSError, ValueError) as e:
+            raise EscalationError(f"{method} {path}: {e!r}"[:300])
 
     def issues(self, state="all"):
         return [i for i in self.req("GET", f"/repos/{REPO}/issues?state={state}&labels=escalation&per_page=100&creator={BOT.replace('[', '%5B').replace(']', '%5D')}")
@@ -236,7 +237,9 @@ def status(gh, project, now):
     try:
         beat = gh.heartbeat()
         issues = gh.issues("open")
-    except EscalationError as e:
+        acks = {i["number"]: is_ack(i, gh.comments(i["number"])) for i in issues
+                if f"project:{project}" in {lb["name"] for lb in i.get("labels", [])}}
+    except (EscalationError, KeyError, TypeError) as e:
         return 2, [f"escalation status unreadable: {e}"]
     reasons = []
     if beat is None or now - beat > HEARTBEAT_MAX:
@@ -245,7 +248,7 @@ def status(gh, project, now):
         labels = {lb["name"] for lb in i.get("labels", [])}
         if f"project:{project}" not in labels:
             continue
-        acked = is_ack(i, gh.comments(i["number"]))
+        acked = acks[i["number"]]
         if not acked and ("parked" in labels or "P1" in labels):
             reasons.append(f"#{i['number']} {'parked' if 'parked' in labels else 'unacknowledged P1'}")
     return (1 if reasons else 0), reasons
