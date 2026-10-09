@@ -1,0 +1,31 @@
+# Second Brain escalation runner (Control Plane Step 5). Runs as github-actions[bot], so the owner is notified
+# (GitHub doesn't notify you about your own actions). GITHUB_TOKEN: issues write in this repo only; no stored secrets.
+name: escalate
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      event: { description: "event type (allowlisted in escalate.py)", required: true, type: string }
+      project: { description: "project id", required: true, type: string }
+      task: { description: "task id (optional)", required: false, type: string, default: "" }
+permissions: { contents: read, issues: write }
+concurrency: { group: escalate, cancel-in-progress: false }
+jobs:
+  escalate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - name: Open escalation (dispatch inputs are validated in Python, never interpolated into shell)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EVENT: ${{ inputs.event }}
+          PROJECT: ${{ inputs.project }}
+          TASK: ${{ inputs.task }}
+        run: python3 escalate.py open --event "$EVENT" --project "$PROJECT" --task "$TASK"
+      - name: Tick (producers, notify, re-alert, park)
+        env: { GITHUB_TOKEN: "${{ github.token }}" }
+        run: python3 escalate.py tick

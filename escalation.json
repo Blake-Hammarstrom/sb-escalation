@@ -1,0 +1,66 @@
+{
+  "gated_repos": [
+    "setwise",
+    "n-of-1-lab"
+  ],
+  "sites": {
+    "setwise": "https://setwise-bsgk.onrender.com",
+    "n-of-1-lab": "https://n-of-1-lab.onrender.com"
+  },
+  "token_expiry": {
+    "setwise": "2026-11-08T00:00:00Z",
+    "n-of-1-lab": "2026-11-08T00:00:00Z"
+  },
+  "ruleset": {
+    "name": "sb-gate main",
+    "target": "branch",
+    "enforcement": "active",
+    "bypass_actors": [],
+    "conditions": {
+      "ref_name": {
+        "include": [
+          "~DEFAULT_BRANCH"
+        ],
+        "exclude": []
+      }
+    },
+    "rules": [
+      {
+        "type": "deletion"
+      },
+      {
+        "type": "non_fast_forward"
+      },
+      {
+        "type": "pull_request",
+        "parameters": {
+          "required_approving_review_count": 0,
+          "dismiss_stale_reviews_on_push": false,
+          "require_code_owner_review": false,
+          "require_last_push_approval": false,
+          "required_review_thread_resolution": false
+        }
+      },
+      {
+        "type": "required_status_checks",
+        "parameters": {
+          "strict_required_status_checks_policy": true,
+          "required_status_checks": [
+            {
+              "context": "static",
+              "integration_id": 15368
+            },
+            {
+              "context": "regression",
+              "integration_id": 15368
+            },
+            {
+              "context": "test",
+              "integration_id": 15368
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
