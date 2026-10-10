@@ -5,3 +5,5 @@ Escalation runner for the Second Brain control plane (Step 5). An escalation is 
 - **Acknowledge:** the owner comments on the issue (or closes it). Comments from anyone else are ignored.
 - **Content is deliberately minimal:** severity, event type, project, task id. No logs, diffs or secrets.
 - **Design and evidence:** in the owner's Second Brain vault (`.claude/ESCALATION.md`).
+
+- **Clock:** GitHub's schedule proved unreliable (2 runs in ~10 h for `*/5`), so a Render cron job runs `python3 kick.py` every 5 min. It only requests a tick-only run; the GitHub schedule stays as a backup.
