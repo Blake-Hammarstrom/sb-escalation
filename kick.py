@@ -47,8 +47,10 @@ def diagnose(token, opener=urllib.request.urlopen):
     for name, url in (("repo visible to token (Metadata: read)", API), ("Actions readable (Actions: read)", f"{API}/actions/workflows")):
         st, d = request(token, "GET", url, opener=opener)
         lines.append(f"  probe {name}: GET {url.replace(API, '/repos/' + REPO)} -> {st} {json.dumps(d) if d else ''}")
-    lines.append("  reading: probe 1 not 200 -> token not granted this repo (or wrong owner / expired / revoked);"
-                 " probes 200 but dispatch 403 -> token lacks Actions: WRITE")
+    lines.append("  reading: probes 401 -> token invalid/expired/revoked. The repo is PUBLIC, so probes return 200 even for a"
+                 " token never granted it: a 403 on dispatch with 200 probes means EITHER the token lacks Actions: write OR"
+                 " sb-escalation isn't among its selected repositories (or the token's owner isn't Blake-Hammarstrom)."
+                 " Check the token's settings page; the API can't tell these apart.")
     return lines
 
 
