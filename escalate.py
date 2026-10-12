@@ -176,7 +176,9 @@ def tick(gh, now, probes=()):
         comments = gh.comments(i["number"])
         alerts = sorted(ts(c["created_at"]) for c in comments
                         if (c.get("user") or {}).get("login") == BOT and ALERT_MARK in (c.get("body") or ""))
-        action = decide(now, sev, ts(i["created_at"]), alerts, is_ack(i, comments), "parked" in labels)
+        created = ts(i["created_at"])
+        # an issue opened by THIS tick is stamped by GitHub after `now` was taken; it is due now, not next tick
+        action = decide(max(now, created), sev, created, alerts, is_ack(i, comments), "parked" in labels)
         n = i["number"]
         if action == "notify":
             if OWNER not in [a["login"] for a in (gh.assign(n) or {}).get("assignees", [])]:
