@@ -18,7 +18,7 @@ BOT = "github-actions[bot]"
 TZ = ZoneInfo("America/Denver")
 QUIET = (22, 7)                                    # 22:00-07:00 local
 SEVERITY = {"gate_drift": "P1", "site_down": "P1", "security": "P1", "production_blocking": "P1",
-            "task_failed": "P2", "task_interrupted": "P2", "token_expiring": "P3", "routine": "P3"}
+            "task_failed": "P2", "task_interrupted": "P2", "policy_violation": "P2", "token_expiring": "P3", "routine": "P3"}
 INTERVAL = {"P1": dt.timedelta(minutes=15), "P2": dt.timedelta(hours=1), "P3": dt.timedelta(hours=4)}
 MAX_REALERTS = 2
 HEARTBEAT_MAX = dt.timedelta(minutes=20)
